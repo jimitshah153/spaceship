@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SpeakSpace - Realtime Practice Platform</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #161b22;
+      padding: 30px;
+      border-radius: 10px;
+    }
+    select, input, textarea, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      border: none;
+      font-size: 16px;
+    }
+    button {
+      background-color: #238636;
+      color: white;
+      cursor: pointer;
+    }
+    #chat, #feedback, #leaderboard, #voiceSection {
+      margin-top: 30px;
+      background: #21262d;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    .message-box {
+      background: #30363d;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+    audio {
+      margin-top: 10px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎙️ SpeakSpace</h1>
+    <h2>Real-Time GD/Interview Practice</h2>
+
+    <!-- Role Selection -->
+    <label for="role">Select Your Role:</label>
+    <select id="role">
+      <option value="participant">Participant</option>
+      <option value="moderator">Moderator</option>
+      <option value="evaluator">Evaluator</option>
+    </select>
+
+    <label for="username">Your Name:</label>
+    <input type="text" id="username" placeholder="Enter your name">
+
+    <label for="sessionId">Session ID:</label>
+    <input type="text" id="sessionId" placeholder="Enter or create a session ID">
+
+    <button onclick="createMeeting()">Create Meeting</button>
+    <button onclick="joinSession()">Join Session</button>
+
+    <!-- Voice Chat -->
+    <div id="voiceSection">
+      <h3>Voice Chat</h3>
+      <p id="status">Connecting...</p>
+      <audio id="remoteAudio" autoplay></audio>
+    </div>
+
+    <!-- Chat Section -->
+    <div id="chat">
+      <h3>Live Chat</h3>
+      <div id="messages"></div>
+      <input type="text" id="messageInput" placeholder="Type a message">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <!-- Feedback Section -->
+    <div id="feedback">
+      <h3>Submit Feedback (Evaluators Only)</h3>
+      <label>Confidence (1-10):</label>
+      <input type="number" id="confidence" min="1" max="10">
+      <label>Communication (1-10):</label>
+      <input type="number" id="communication" min="1" max="10">
+      <label>Logic (1-10):</label>
+      <input type="number" id="logic" min="1" max="10">
+      <label>Comments:</label>
+      <textarea id="comments"></textarea>
+      <button onclick="submitFeedback()">Submit</button>
+    </div>
+
+    <!-- Leaderboard Section -->
+    <div id="leaderboard">
+      <h3>Leaderboard (Top Evaluators)</h3>
+      <ol id="leaderList">
+        <li>Loading...</li>
+      </ol>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const messagesDiv = document.getElementById('messages');
+    const remoteAudio = document.getElementById('remoteAudio');
+    document.getElementById('status').innerText = "Status: Connected ✅";
+
+    function generateSessionId() {
+      return 'sess-' + Math.random().toString(36).substr(2, 8);
+    }
+
+    function createMeeting() {
+      const sessionId = generateSessionId();
+      document.getElementById('sessionId').value = sessionId;
+      alert(`Meeting created! Share this Session ID with others: ${sessionId}`);
+    }
+
+    function joinSession() {
+      const username = document.getElementById('username').value;
+      const sessionId = document.getElementById('sessionId').value;
+      const role = document.getElementById('role').value;
+
+      if (!username || !sessionId) {
+        alert("Please enter your name and session ID");
+        return;
+      }
+
+      socket.emit("join-session", { username, sessionId, role });
+      alert(`${role} ${username} joined session ${sessionId}`);
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const text = input.value;
+      if (!text) return;
+
+      socket.emit('chat-message', text);
+
+      const message = document.createElement('div');
+      message.className = 'message-box';
+      message.textContent = "You: " + text;
+      messagesDiv.appendChild(message);
+      input.value = '';
+    }
+
+    socket.on("chat-message", (msg) => {
+      const message = document.createElement('div');
+      message.className = 'message-box';
+      message.textContent = msg;
+      messagesDiv.appendChild(message);
+    });
+
+    function submitFeedback() {
+      const feedback = {
+        confidence: document.getElementById('confidence').value,
+        communication: document.getElementById('communication').value,
+        logic: document.getElementById('logic').value,
+        comments: document.getElementById('comments').value
+      };
+
+      alert("Feedback submitted! Thank you.");
+      console.log("Feedback:", feedback);
+    }
+
+    // Voice chat via WebRTC
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        const audioTracks = stream.getAudioTracks();
+        socket.emit("voice-stream", "voice-started");
+        // Simulated WebRTC - real setup requires signaling logic
+        remoteAudio.srcObject = stream;
+      })
+      .catch(error => {
+        console.error("Mic access denied or error", error);
+      });
+
+    // Leaderboard placeholder
+    document.getElementById('leaderList').innerHTML = `
+      <li>Evaluator A - Avg Score: 9.2</li>
+      <li>Evaluator B - Avg Score: 8.7</li>
+      <li>Evaluator C - Avg Score: 8.5</li>
+    `;
+  </script>
+</body>
+</html>
